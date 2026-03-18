@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MosheAI — כניסה</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:#05080f; --card:#0c1120; --border:#1a2540; --border2:#243050;
+  --p1:#7c3aed; --p2:#6d28d9; --blue:#2563eb;
+  --text:#e8edf5; --muted:#7d8fa8; --dim:#475569;
+  --glow:rgba(124,58,237,0.45);
+}
+html,body{height:100%;font-family:'Heebo',sans-serif;background:var(--bg);color:var(--text);overflow:hidden;}
+#bg{position:fixed;inset:0;z-index:0;}
+.page{position:relative;z-index:1;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+.card{background:rgba(12,17,32,0.88);backdrop-filter:blur(24px);border:1px solid var(--border2);border-radius:24px;padding:44px 42px 40px;width:100%;max-width:420px;box-shadow:0 24px 80px rgba(0,0,0,0.7),0 0 0 1px rgba(124,58,237,0.12),inset 0 1px 0 rgba(255,255,255,0.04);animation:cardIn 0.6s cubic-bezier(0.22,1,0.36,1);}
+@keyframes cardIn{from{opacity:0;transform:translateY(28px) scale(0.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+.logo-wrap{text-align:center;margin-bottom:34px;}
+.logo-icon{width:76px;height:76px;background:linear-gradient(135deg,var(--p1),var(--blue));border-radius:22px;display:inline-flex;align-items:center;justify-content:center;font-size:38px;box-shadow:0 0 40px var(--glow),0 0 80px rgba(124,58,237,0.2);animation:float 3.5s ease-in-out infinite;margin-bottom:18px;}
+@keyframes float{0%,100%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-10px) rotate(3deg)}}
+.logo-title{font-size:32px;font-weight:900;background:linear-gradient(90deg,#a78bfa,#60a5fa,#34d399);background-size:200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:shimmer 4s linear infinite;letter-spacing:-0.5px;}
+@keyframes shimmer{0%{background-position:0%}100%{background-position:200%}}
+.logo-sub{font-size:13px;color:var(--muted);margin-top:5px;line-height:1.5;}
+.features{display:flex;gap:8px;justify-content:center;margin-bottom:28px;flex-wrap:wrap;}
+.feat-pill{background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.25);border-radius:20px;padding:4px 12px;font-size:11.5px;color:#a78bfa;}
+.error-box{background:rgba(220,38,38,0.1);border:1px solid rgba(220,38,38,0.4);border-radius:10px;padding:11px 15px;font-size:13px;color:#fca5a5;display:flex;align-items:center;gap:8px;margin-bottom:20px;animation:shake 0.4s ease;}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
+.form-group{margin-bottom:18px;}
+label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.7px;margin-bottom:7px;}
+.input-wrap{position:relative;}
+.input-icon{position:absolute;top:50%;transform:translateY(-50%);right:14px;font-size:16px;pointer-events:none;}
+input[type="text"],input[type="password"]{width:100%;background:rgba(255,255,255,0.04);border:1.5px solid var(--border);border-radius:12px;padding:13px 44px 13px 16px;font-size:15px;color:var(--text);font-family:inherit;outline:none;transition:border-color 0.2s,box-shadow 0.2s;direction:ltr;text-align:right;}
+input:focus{border-color:var(--p1);box-shadow:0 0 0 3px rgba(124,58,237,0.22),0 4px 12px rgba(124,58,237,0.1);}
+input::placeholder{color:var(--dim);}
+.login-btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--p1),var(--blue));border:none;border-radius:12px;color:white;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;transition:transform 0.15s,box-shadow 0.2s;margin-top:6px;box-shadow:0 6px 24px rgba(124,58,237,0.45);position:relative;overflow:hidden;}
+.login-btn::before{content:"";position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.12),transparent);}
+.login-btn:hover{transform:translateY(-2px);box-shadow:0 10px 32px rgba(124,58,237,0.55);}
+.divider{display:flex;align-items:center;gap:12px;margin:20px 0 0;}
+.divider-line{flex:1;height:1px;background:var(--border);}
+.divider-text{font-size:11px;color:var(--dim);white-space:nowrap;}
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+<div class="page">
+  <div class="card">
+    <div class="logo-wrap">
+      <div class="logo-icon">🤖</div>
+      <div class="logo-title">MosheAI</div>
+      <div class="logo-sub">עוזר AI מקצועי לדוחות, שקופיות וסטטיסטיקה</div>
+    </div>
+    <div class="features">
+      <div class="feat-pill">📊 PowerPoint</div>
+      <div class="feat-pill">📄 Word</div>
+      <div class="feat-pill">📈 גרפים</div>
+      <div class="feat-pill">🧠 זיכרון חכם</div>
+    </div>
+    {% if error %}
+    <div class="error-box">⚠️ {{ error }}</div>
+    {% endif %}
+    <form method="POST">
+      <div class="form-group">
+        <label>שם משתמש</label>
+        <div class="input-wrap">
+          <span class="input-icon">👤</span>
+          <input type="text" name="username" placeholder="הכנס שם משתמש" autocomplete="username" autofocus>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>סיסמה</label>
+        <div class="input-wrap">
+          <span class="input-icon">🔒</span>
+          <input type="password" name="password" placeholder="הכנס סיסמה" autocomplete="current-password">
+        </div>
+      </div>
+      <button type="submit" class="login-btn">כניסה למערכת ←</button>
+    </form>
+    <div class="divider">
+      <div class="divider-line"></div>
+      <div class="divider-text">מופעל על ידי Groq · llama-3.3-70b</div>
+      <div class="divider-line"></div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  const c=document.getElementById("bg"),x=c.getContext("2d");
+  let W,H,pts=[];
+  function resize(){W=c.width=window.innerWidth;H=c.height=window.innerHeight;}
+  resize(); window.addEventListener("resize",resize);
+  for(let i=0;i<50;i++)pts.push({x:Math.random(),y:Math.random(),vx:(Math.random()-0.5)*0.06,vy:(Math.random()-0.5)*0.06,r:Math.random()*1.8+0.3,o:Math.random()*0.5+0.15});
+  function draw(){
+    x.clearRect(0,0,W,H);
+    const g=x.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.min(W,H)*0.7);
+    g.addColorStop(0,"rgba(124,58,237,0.07)");g.addColorStop(1,"transparent");
+    x.fillStyle=g;x.fillRect(0,0,W,H);
+    pts.forEach(p=>{
+      p.x+=p.vx*0.001;p.y+=p.vy*0.001;
+      if(p.x<0)p.x=1;if(p.x>1)p.x=0;if(p.y<0)p.y=1;if(p.y>1)p.y=0;
+      x.beginPath();x.arc(p.x*W,p.y*H,p.r,0,Math.PI*2);
+      x.fillStyle=`rgba(124,58,237,${p.o})`;x.fill();
+    });
+    for(let i=0;i<pts.length;i++)for(let j=i+1;j<pts.length;j++){
+      const dx=(pts[i].x-pts[j].x)*W,dy=(pts[i].y-pts[j].y)*H,d=Math.sqrt(dx*dx+dy*dy);
+      if(d<130){x.beginPath();x.moveTo(pts[i].x*W,pts[i].y*H);x.lineTo(pts[j].x*W,pts[j].y*H);x.strokeStyle=`rgba(124,58,237,${0.1*(1-d/130)})`;x.lineWidth=0.6;x.stroke();}
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+config.json
+moshe_memory.json
+outputs/
+*.pptx
+*.docx
+*.png
+*.xlsx
+.venv/
+venv/
