@@ -12,17 +12,42 @@ from engine.tools import list_outputs, OUTPUT_DIR
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "mosheai-secret-2026-xk9")
-app.config["JSON_AS_ASCII"]        = False
+app.config["JSON_AS_ASCII"]         = False
 app.config["TEMPLATES_AUTO_RELOAD"] = True
+app.config["MAX_CONTENT_LENGTH"]    = 16 * 1024 * 1024  # 16MB upload limit
 
 # ── משתמשים ──────────────────────────────────────
-CREDENTIALS = {
-    "Moshei1": "Admin2026"
-}
+CREDENTIALS = {"Moshei1": "Admin2026"}
 
-# ── טעינת API Key מ-env ──────────────────────────
-# ב-Vercel מגדירים GROQ_API_KEY ב-Environment Variables
-# בסביבה מקומית: set GROQ_API_KEY=gsk_...
+# ── תיקיית קבצים שהועלו ─────────────────────────
+UPLOAD_DIR = Path("/tmp/mosheai_uploads")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+# ── Config ב-/tmp (עמיד בין requests באותו container) ─
+CONFIG_FILE = Path("/tmp/mosheai_config.json")
+
+
+def _load_config() -> dict:
+    try:
+        if CONFIG_FILE.exists():
+            return json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return {}
+
+
+def _save_config(cfg: dict):
+    try:
+        CONFIG_FILE.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+
+
+# ── טעינת API Key בעת אתחול ──────────────────────
+# סדר עדיפות: env var (Vercel dashboard) → /tmp/config.json
+_cfg = _load_config()
+if not os.environ.get("GROQ_API_KEY") and _cfg.get("groq_api_key"):
+    os.environ["GROQ_API_KEY"] = _cfg["groq_api_key"]
 
 agent = MosheAIAgent()
 
@@ -66,6 +91,13 @@ def logout():
 @app.route("/")
 @login_required
 def index():
+    # Reload key from config if env not set (cold start recovery)
+    if not os.environ.get("GROQ_API_KEY"):
+        cfg = _load_config()
+        if cfg.get("groq_api_key"):
+            os.environ["GROQ_API_KEY"] = cfg["groq_api_key"]
+            _reinit_agent()
+
     api_key_set = bool(os.environ.get("GROQ_API_KEY"))
     username    = session.get("username", "")
     return render_template("index.html", api_key_set=api_key_set, username=username)
@@ -75,10 +107,23 @@ def index():
 @app.route("/api/chat", methods=["POST"])
 @login_required
 def chat():
+    # Ensure agent has the key (recover from cold start)
+    if not os.environ.get("GROQ_API_KEY"):
+        cfg = _load_config()
+        if cfg.get("groq_api_key"):
+            os.environ["GROQ_API_KEY"] = cfg["groq_api_key"]
+            _reinit_agent()
+
     data    = request.get_json(force=True)
     message = (data.get("message") or "").strip()
     if not message:
         return jsonify({"error": "הודעה ריקה"}), 400
+
+    # Attach uploaded files context to message
+    uploaded = _list_uploaded_files()
+    if uploaded and not data.get("_files_appended"):
+        file_list = ", ".join(f["name"] for f in uploaded[:5])
+        message = f"{message}\n\n[קבצים זמינים להשתמש: {file_list}]"
 
     def generate():
         for chunk in agent.stream_response(message):
@@ -108,15 +153,95 @@ def get_files():
 def download_file(filename):
     path = OUTPUT_DIR / Path(filename).name
     if not path.exists():
-        return jsonify({"error": "קובץ לא נמצא — ייתכן שהשרת הופעל מחדש"}), 404
+        return jsonify({"error": "קובץ לא נמצא"}), 404
     return send_file(str(path), as_attachment=True, download_name=path.name)
 
 
+# ── העלאת קבצים ──────────────────────────────────
+@app.route("/api/upload", methods=["POST"])
+@login_required
+def upload_file():
+    if "file" not in request.files:
+        return jsonify({"error": "לא נשלח קובץ"}), 400
+
+    f = request.files["file"]
+    if not f.filename:
+        return jsonify({"error": "שם קובץ ריק"}), 400
+
+    # Allow only safe extensions
+    allowed = {".xlsx", ".xls", ".csv", ".txt", ".json", ".pdf", ".docx", ".pptx"}
+    suffix  = Path(f.filename).suffix.lower()
+    if suffix not in allowed:
+        return jsonify({"error": f"סוג קובץ לא נתמך: {suffix}"}), 400
+
+    save_path = UPLOAD_DIR / Path(f.filename).name
+    f.save(str(save_path))
+
+    # Try to read text content for context
+    content_preview = ""
+    try:
+        if suffix == ".csv":
+            content_preview = save_path.read_text(encoding="utf-8", errors="replace")[:2000]
+        elif suffix in (".txt", ".json"):
+            content_preview = save_path.read_text(encoding="utf-8", errors="replace")[:2000]
+        elif suffix in (".xlsx", ".xls"):
+            try:
+                import openpyxl
+                wb = openpyxl.load_workbook(str(save_path), read_only=True, data_only=True)
+                ws = wb.active
+                rows = []
+                for i, row in enumerate(ws.iter_rows(values_only=True)):
+                    if i >= 50: break
+                    rows.append("\t".join(str(c) if c is not None else "" for c in row))
+                content_preview = "\n".join(rows)
+                wb.close()
+            except ImportError:
+                content_preview = "(openpyxl לא מותקן — תוכן לא נקרא)"
+    except Exception as e:
+        content_preview = f"(לא ניתן לקרוא: {e})"
+
+    size_kb = save_path.stat().st_size // 1024
+
+    return jsonify({
+        "ok":      True,
+        "name":    f.filename,
+        "size":    f"{size_kb} KB",
+        "preview": content_preview[:500] if content_preview else "",
+        "message": f"✅ הקובץ '{f.filename}' הועלה בהצלחה!"
+    })
+
+
+@app.route("/api/uploads")
+@login_required
+def get_uploads():
+    return jsonify(_list_uploaded_files())
+
+
+def _list_uploaded_files() -> list:
+    files = []
+    try:
+        for p in sorted(UPLOAD_DIR.iterdir(), key=lambda x: -x.stat().st_mtime):
+            if p.is_file():
+                files.append({
+                    "name":    p.name,
+                    "size":    f"{p.stat().st_size // 1024} KB",
+                    "suffix":  p.suffix[1:].upper()
+                })
+    except Exception:
+        pass
+    return files
+
+
+# ── הגדרות API Key ────────────────────────────────
 @app.route("/api/settings", methods=["GET", "POST"])
 @login_required
 def settings():
     if request.method == "GET":
-        key    = os.environ.get("GROQ_API_KEY", "")
+        # Also check /tmp config as fallback
+        key = os.environ.get("GROQ_API_KEY", "")
+        if not key:
+            cfg = _load_config()
+            key = cfg.get("groq_api_key", "")
         masked = ("gsk_..." + key[-6:]) if len(key) > 10 else ""
         return jsonify({"api_key_set": bool(key), "masked": masked, "provider": "Groq"})
 
@@ -127,17 +252,23 @@ def settings():
     if not key.startswith("gsk_"):
         return jsonify({"error": "מפתח Groq לא תקין (חייב להתחיל ב-gsk_)"}), 400
 
+    # Save to env AND to /tmp config (survives within same container)
     os.environ["GROQ_API_KEY"] = key
+    cfg = _load_config()
+    cfg["groq_api_key"] = key
+    _save_config(cfg)
     _reinit_agent()
+
     return jsonify({"ok": True, "message": "✅ Groq API Key נשמר והסוכן אותחל מחדש!"})
 
 
 # ── Health check ──────────────────────────────────
 @app.route("/api/health")
 def health():
+    key = os.environ.get("GROQ_API_KEY", "") or _load_config().get("groq_api_key", "")
     return jsonify({
         "status":  "ok",
-        "api_key": bool(os.environ.get("GROQ_API_KEY")),
+        "api_key": bool(key),
         "model":   "llama-3.3-70b-versatile"
     })
 
@@ -148,9 +279,9 @@ if __name__ == "__main__":
     print("\n" + "=" * 50)
     print("  MosheAI  -  Ready!")
     print("=" * 50)
-    if not os.environ.get("GROQ_API_KEY"):
+    key = os.environ.get("GROQ_API_KEY", "") or _load_config().get("groq_api_key", "")
+    if not key:
         print("  WARNING: GROQ_API_KEY not set!")
-        print("  set GROQ_API_KEY=gsk_...")
     else:
         print("  Groq API Key: OK ✅")
     print("  URL: http://localhost:5000")
