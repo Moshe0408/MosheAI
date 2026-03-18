@@ -57,6 +57,19 @@ def _reinit_agent():
     agent = MosheAIAgent()
 
 
+# ── before_request: שחזר API Key מה-session cookie ──
+@app.before_request
+def ensure_api_key():
+    key = (
+        os.environ.get("GROQ_API_KEY")
+        or session.get("groq_key")
+        or _load_config().get("groq_api_key", "")
+    )
+    if key and not os.environ.get("GROQ_API_KEY"):
+        os.environ["GROQ_API_KEY"] = key
+        _reinit_agent()
+
+
 # ── הגנה ─────────────────────────────────────────
 def login_required(f):
     @functools.wraps(f)
@@ -252,8 +265,9 @@ def settings():
     if not key.startswith("gsk_"):
         return jsonify({"error": "מפתח Groq לא תקין (חייב להתחיל ב-gsk_)"}), 400
 
-    # Save to env AND to /tmp config (survives within same container)
+    # Save to env, session cookie AND /tmp config
     os.environ["GROQ_API_KEY"] = key
+    session["groq_key"] = key          # travels with every request across serverless containers
     cfg = _load_config()
     cfg["groq_api_key"] = key
     _save_config(cfg)

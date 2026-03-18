@@ -21,7 +21,7 @@
   --tr:0.22s cubic-bezier(0.4,0,0.2,1);
 }
 
-html,body{height:100%;font-family:'Heebo',sans-serif;background:var(--bg);color:var(--text);overflow:hidden;font-size:16px;}
+html,body{height:100%;font-family:'Heebo',sans-serif;background:var(--bg);color:var(--text);overflow:hidden;font-size:17px;}
 
 /* SCROLLBAR */
 ::-webkit-scrollbar{width:5px;}
@@ -54,7 +54,7 @@ html,body{height:100%;font-family:'Heebo',sans-serif;background:var(--bg);color:
   50%{box-shadow:0 0 36px var(--glow-p),0 0 70px rgba(139,92,246,0.4);}
 }
 .logo-name{
-  font-size:24px;font-weight:900;
+  font-size:26px;font-weight:900;
   background:linear-gradient(90deg,#c4b5fd,#93c5fd,#6ee7b7);
   background-size:200%;
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;
@@ -225,7 +225,7 @@ html,body{height:100%;font-family:'Heebo',sans-serif;background:var(--bg);color:
 .msg-bubble{
   background:var(--card2);border:1px solid var(--border2);
   border-radius:var(--radius);padding:14px 18px;
-  font-size:15px;line-height:1.75;white-space:pre-wrap;word-break:break-word;
+  font-size:16px;line-height:1.75;white-space:pre-wrap;word-break:break-word;
 }
 .msg.user .msg-bubble{
   background:linear-gradient(135deg,rgba(139,92,246,0.2),rgba(59,130,246,0.16));
@@ -329,6 +329,16 @@ html,body{height:100%;font-family:'Heebo',sans-serif;background:var(--bg);color:
 /* CURSOR */
 .cursor::after{content:"▋";animation:blink 1s infinite;color:var(--p1);font-size:12px;vertical-align:middle;}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* MODE SELECTOR */
+.mode-selector{display:flex;gap:8px;margin-bottom:10px;}
+.mode-btn{
+  padding:6px 18px;border-radius:20px;font-size:13px;font-weight:700;
+  cursor:pointer;transition:all 0.2s;border:1.5px solid var(--border2);
+  background:transparent;color:var(--muted);font-family:inherit;
+}
+.mode-btn.active.chat{background:rgba(59,130,246,0.15);border-color:var(--blue);color:#93c5fd;}
+.mode-btn.active.create{background:rgba(139,92,246,0.15);border-color:var(--p1);color:#c4b5fd;}
 
 /* ══ MODAL ══ */
 .modal-overlay{display:none;position:fixed;inset:0;z-index:100;align-items:center;justify-content:center;}
@@ -458,6 +468,12 @@ html,body{height:100%;font-family:'Heebo',sans-serif;background:var(--bg);color:
     <div id="input-area">
       <div id="quick-examples"></div>
 
+      <!-- Mode selector -->
+      <div class="mode-selector">
+        <button class="mode-btn active chat" id="mode-chat" onclick="setMode('chat')">💬 שיחה חופשית</button>
+        <button class="mode-btn create" id="mode-create" onclick="setMode('create')">📊 צור קובץ</button>
+      </div>
+
       <!-- Uploaded files strip -->
       <div id="upload-strip" style="display:none;margin-bottom:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
         <span style="font-size:11px;color:var(--muted);font-weight:700;">📎 קבצים:</span>
@@ -579,15 +595,22 @@ html,body{height:100%;font-family:'Heebo',sans-serif;background:var(--bg);color:
 
 // ══ EXAMPLES ══
 const EXAMPLES=[
-  "📊 מצגת על ביצועי מכירות Q1 2024",
-  "📄 דוח Word על מצב מלאי המחסן",
-  "📈 גרף: ינואר=120, פברואר=95, מרץ=140",
-  "🥧 גרף עוגה: דרום=30%, מרכז=45%, צפון=25%",
-  "🤖 מצגת מגמות AI ב-2024 עם 5 שקופיות",
-  "📋 דוח שנתי לחברה עם 4 חלקים"
+  "📊 צור מצגת מסיכום שיחות יומי",
+  "📈 נתח את קובץ ה-Calls שהעלתי",
+  "📄 כתוב דוח Word על ביצועי הנציגים",
+  "🥧 גרף עוגה של Disposition breakdown",
+  "💬 מה זמן תגובה טוב לטיקט?",
+  "📋 השווה ביצועי נציגים השבוע"
 ];
 
 let isStreaming=false;
+let currentMode='chat'; // 'chat' | 'create'
+
+function setMode(mode){
+  currentMode=mode;
+  document.getElementById("mode-chat").className   = "mode-btn" + (mode==="chat"   ? " active chat"   : "");
+  document.getElementById("mode-create").className = "mode-btn" + (mode==="create" ? " active create" : "");
+}
 
 document.addEventListener("DOMContentLoaded",()=>{
   renderExamples();loadFiles();loadMemory();setupInput();loadSettingsStatus();
@@ -625,8 +648,13 @@ async function sendMessage(){
   const aiBody=appendAIMsg();
   scrollBottom();
   let textEl=null;
+  // Append mode hint to the message sent to backend
+  const modeSuffix = currentMode==="chat"
+    ? "\n\n[מצב שיחה - ענה בטקסט בלבד, אל תיצור קבצים אלא אם מבוקש במפורש]"
+    : "\n\n[מצב יצירה - המשתמש מבקש ליצור קובץ]";
+  const apiText = text + modeSuffix;
   try{
-    const resp=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:text})});
+    const resp=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:apiText})});
     const reader=resp.body.getReader(),decoder=new TextDecoder();
     let buf="";
     while(true){
